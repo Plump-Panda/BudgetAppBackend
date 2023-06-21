@@ -1,9 +1,12 @@
 from flask import Flask, jsonify, request
 import plaid
+from plaid.api import plaid_api
 from dotenv import load_dotenv
 import os
+import requests
 
 load_dotenv()
+
 
 # Get the value of the PLAID_API_KEY environment variable
 plaid_api_key = os.environ.get('PLAID_API_KEY')
@@ -12,12 +15,31 @@ app = Flask(__name__)
 
 # set Plaid API credentials
 PLAID_CLIENT_ID = os.environ.get('PLAID_CLIENT_ID')
-PLAID_SECRET = os.environ.get('PLAID_SECRET_KEY')
-PLAID_PUBLIC_KEY = os.environ.get('PLAID_PUBLIC_KEY')
-PLAID_ENV = os.environ.get('sandbox')  # set to 'development' or 'production' in production
+PLAID_SECRET_KEY = os.environ.get('PLAID_ENVIRONMENT_KEY')
 
-# create Plaid API client object
-client = plaid.Client(client_id=PLAID_CLIENT_ID, secret=PLAID_SECRET, public_key=PLAID_PUBLIC_KEY, environment=PLAID_ENV)
+# Available environments are
+# 'Production'
+# 'Development'
+# 'Sandbox'
+configuration = plaid.Configuration(
+    host=plaid.Environment.Sandbox,
+    api_key={
+        'clientId': PLAID_CLIENT_ID,
+        'secret': PLAID_SECRET_KEY,
+    }
+)
+
+# Set up Plaid client
+api_client = plaid.ApiClient(configuration)
+client = plaid_api.PlaidApi(api_client)
+
+
+@app.route('/plaid/getToken')
+def request_public_token():
+    request = ItemPublicTokenExchangeRequest(public_token=public_token)
+    response = client.item_public_token_exchange(request)
+    access_token = response['access_token']
+    item_id = response['item_id']
 
 # define route for Plaid authentication
 @app.route('/plaid/authenticate', methods=['POST'])
@@ -50,6 +72,10 @@ def get_transactions():
 
     # Return the filtered transaction data as a JSON response
     return jsonify({'transactions': filtered_transactions})
+
+@app.route('/', methods=['GET'])
+def bruh():
+    return 'Wah'
 
 if __name__ == '__main__':
     app.run(debug=True)
