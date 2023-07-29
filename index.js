@@ -2,18 +2,32 @@ const express = require('express')
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const { Configuration, PlaidApi, PlaidEnvironments } = require('plaid');
+const {MongoClient, ServerApiVersion } = require('mongodb');
+require('dotenv').config()
 
 // Plaid setup
 const configuration = new Configuration({
   basePath: PlaidEnvironments.sandbox,
   baseOptions: {
     headers: {
-      'PLAID-CLIENT-ID': "",
-      'PLAID-SECRET': "",
+      'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
+      'PLAID-SECRET': process.env.PLAID_SECRET,
     },
   },
 });
 const plaidClient = new PlaidApi(configuration);
+
+const uri = "mongodb+srv://"+process.env.DB_USER+":"+process.env.DB_PASSWORD+"@accounts.nrahwy2.mongodb.net/?retryWrites=true&w=majority";
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
+
+let db = null;
+let accounts = null;
 
 // Server setup
 const app = express()
@@ -91,7 +105,47 @@ app.post("/api/auth", async function (request, response) {
   }
 });
 
+app.post('/api/login', async function(request, response){
+  try{
+    const users = await accounts.find({
+      username: request.body.username,
+      password: request.body.password,
+    });
+
+    let counter = 0;
+    for await (const user of users) {
+      counter+=1;
+    }
+
+    if(counter === 1){
+      response.status(200).send("Success");
+    }else{
+      response.status(200).send("User doesn't exist");
+    }
+  }catch(err){
+    response.status(500).send(err);
+  }
+});
+
+async function setupDatabase() {
+  try {
+    // Connect the client to the server	(optional starting in v4.7)
+    await client.connect();
+    // Send a ping to confirm a successful connection
+    await client.db("BudgetApp").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+    db = client.db('BudgetApp');
+    accounts = db.collection('Accounts');
+  } catch(err){
+    console.error("Error connecting to DB",err);
+    await client.close();
+  }
+}
+// startDBConnection().catch(console.dir);
+
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+  console.log(`Example app listening on port ${port}`);
+  setupDatabase();
 });
