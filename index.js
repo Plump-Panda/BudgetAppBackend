@@ -105,25 +105,41 @@ app.post("/api/auth", async function (request, response) {
   }
 });
 
+// TODO: Implement JWTs for more security
 app.post('/api/login', async function(request, response){
   try{
     const users = await accounts.find({
-      username: request.body.username,
-      password: request.body.password,
+      email: request.body.email,
     });
 
     let counter = 0;
+    let password;
     for await (const user of users) {
       counter+=1;
+      password = user.password;
     }
 
     if(counter === 1){
-      response.status(200).send("Success");
+      response.json({password: password}).status(200);
     }else{
-      response.status(200).send("User doesn't exist");
+      response.sendStatus(401);
     }
   }catch(err){
-    response.status(500).send(err);
+    response.sendStatus(500).send({error: err});
+  }
+});
+
+// TODO: Implement JWTs for more security
+app.post('/api/createaccount', async function(request, response){
+  const user = {email: request.body.email, password: request.body.password}
+  try{
+    accounts.insertOne(user, function(err, res) {
+      if (err) throw err;
+      console.log("Inserted user into Accounts table", user);
+    });
+    response.sendStatus(200);
+  }catch(err){
+    response.sendStatus(500).send({error: err});
   }
 });
 
