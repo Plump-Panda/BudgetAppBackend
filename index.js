@@ -135,7 +135,7 @@ app.post('/api/login', async function(request, response){
 
     if(counter === 1){
       if(isConnected){
-        response.json({password: password, access_token, accessToken}).status(200);
+        response.json({password: password, access_token: accessToken}).status(200);
       }else{
         response.json({password: password}).status(200);
       }
@@ -143,7 +143,8 @@ app.post('/api/login', async function(request, response){
       response.sendStatus(401);
     }
   }catch(err){
-    response.sendStatus(500).send({error: err});
+    console.log(err);
+    response.sendStatus(500);
   }
 });
 
