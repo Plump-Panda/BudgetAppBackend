@@ -119,23 +119,11 @@ app.post('/api/login', async function(request, response){
   try{
     const users = await accountsCollection.find({
       email: request.body.email,
-    });
+    }).toArray();
 
-    let counter = 0;
-    let password;
-    let accessToken;
-    let isConnected;
-    for await (const user of users) {
-      counter+=1;
-      password = user.password;
-      accessToken = user?.accessToken;
-    }
-
-    isConnected = accessToken ? true : false;
-
-    if(counter === 1){
-      if(isConnected){
-        response.json({password: password, access_token: accessToken}).status(200);
+    if(users.length === 1){
+      if(users[0].accessToken){
+        response.json({password: users[0].password, access_token: users[0].accessToken}).status(200);
       }else{
         response.json({password: password}).status(200);
       }
