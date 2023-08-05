@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const { Configuration, PlaidApi, PlaidEnvironments } = require('plaid');
 const {MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config()
+const modules = require("./modules")
 
 // Plaid setup
 const configuration = new Configuration({
@@ -27,7 +28,7 @@ const client = new MongoClient(uri, {
 });
 
 let db = null;
-let accounts = null;
+let accountsCollection = null;
 
 // Server setup
 const app = express()
@@ -69,7 +70,6 @@ app.post('/api/create_link_token', async function (request, response) {
 app.post('/api/exchange_public_token', async function (
   request,
   response,
-  next,
 ) {
   const publicToken = request.body.public_token;
   try {
@@ -80,7 +80,16 @@ app.post('/api/exchange_public_token', async function (
     // These values should be saved to a persistent database and
     // associated with the currently signed-in user
     const accessToken = createTokenResponse.data.access_token;
-    const itemID = createTokenResponse.data.item_id;
+    // const itemID = createTokenResponse.data.item_id;
+   
+    // add access token to user
+    const filter = { email: request.body.email };
+    const updateItem = {
+      $set: {
+          accessToken: accessToken,
+      },
+    };
+    modules.updateItemInCollection(accountsCollection,filter,updateItem);
 
     response.json({ status: 200, access_token: accessToken });
   } catch (err) {
@@ -108,19 +117,28 @@ app.post("/api/auth", async function (request, response) {
 // TODO: Implement JWTs for more security
 app.post('/api/login', async function(request, response){
   try{
-    const users = await accounts.find({
+    const users = await accountsCollection.find({
       email: request.body.email,
     });
 
     let counter = 0;
     let password;
+    let accessToken;
+    let isConnected;
     for await (const user of users) {
       counter+=1;
       password = user.password;
+      accessToken = user?.accessToken;
     }
 
+    isConnected = accessToken ? true : false;
+
     if(counter === 1){
-      response.json({password: password}).status(200);
+      if(isConnected){
+        response.json({password: password, access_token, accessToken}).status(200);
+      }else{
+        response.json({password: password}).status(200);
+      }
     }else{
       response.sendStatus(401);
     }
@@ -133,7 +151,7 @@ app.post('/api/login', async function(request, response){
 app.post('/api/createaccount', async function(request, response){
   const user = {email: request.body.email, password: request.body.password}
   try{
-    accounts.insertOne(user, function(err, res) {
+    accountsCollection.insertOne(user, function(err, res) {
       if (err) throw err;
       console.log("Inserted user into Accounts table", user);
     });
@@ -152,7 +170,7 @@ async function setupDatabase() {
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
     db = client.db('BudgetApp');
-    accounts = db.collection('Accounts');
+    accountsCollection = db.collection('Accounts');
   } catch(err){
     console.error("Error connecting to DB",err);
     await client.close();
