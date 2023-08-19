@@ -150,6 +150,23 @@ app.post('/api/createaccount', async function(request, response){
   }
 });
 
+app.get('/api/getmaindata', async function (request, response){
+  try{
+    const users = accountsCollection.find({email: response.body.email}).toArray();
+    if(users.length === 1){
+      if(users[0].accessToken){        
+        response.json({password: users[0].password, access_token: users[0].accessToken}).status(200);
+      }else{
+        response.json({password: password}).status(200);
+      }
+    }else{
+      response.sendStatus(500);
+    }
+  }catch(err){
+
+  };
+});
+
 async function setupDatabase() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
